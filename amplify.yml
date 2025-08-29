@@ -1,0 +1,42 @@
+version: 1
+applications:
+  - appRoot: .
+    frontend:
+      phases:
+        preBuild:
+          commands:
+            # Step 1: Install dependencies
+            - npm install
+
+            # Step 2: Set environment variables based on branch
+            - echo "Setting environment variables"
+            - |
+              if [ "$AWS_BRANCH" == "dev" ]; then
+                echo "NEXT_PUBLIC_API_BASE_URL=${API_URL_DEV}" >> .env.local
+              elif [ "$AWS_BRANCH" == "stg" ]; then
+                echo "NEXT_PUBLIC_API_BASE_URL=${API_URL_STG}" >> .env.local
+              elif [ "$AWS_BRANCH" == "main" ]; then
+                echo "NEXT_PUBLIC_API_BASE_URL=${API_URL_PROD}" >> .env.local
+              fi
+
+        build:
+          commands:
+            # Step 3: Build the Next.js application
+            - npm run build
+
+        postBuild:
+          commands:
+            # Step 4: Optional - Add any post-build steps if necessary
+            - echo "Build completed successfully"
+
+      artifacts:
+        # This specifies where the build output is located
+        baseDirectory: .next
+        files:
+          - '**/*'  # Include all files from the output directory
+
+    caching:
+      paths:
+        - node_modules/**/*
+    ssr:
+      enabled: true
