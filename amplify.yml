@@ -6,7 +6,8 @@ applications:
         preBuild:
           commands:
             # Step 1: Install dependencies
-            - npm install
+            - npm config set legacy-peer-deps true
+            - npm ci || npm install
 
             # Step 2: Set environment variables based on branch
             - echo "Setting environment variables"
