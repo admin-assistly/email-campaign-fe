@@ -9,92 +9,110 @@ import { CheckCircle, XCircle, Loader2, Mail } from "lucide-react";
 function OAuthCallbackContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
-  const [message, setMessage] = useState('Processing OAuth callback...');
+  const [status, setStatus] = useState('processing');
+  const [message, setMessage] = useState('');
+  const [email, setEmail] = useState('');
 
   useEffect(() => {
     const success = searchParams.get('success');
-    const provider = searchParams.get('provider');
     const error = searchParams.get('error');
+    const provider = searchParams.get('provider');
+    const emailParam = searchParams.get('email');
 
-    if (error) {
-      setStatus('error');
-      setMessage(`OAuth Error: ${error}`);
-      setTimeout(() => {
-        router.push('/dashboard');
-      }, 3000);
-      return;
+    if (emailParam) {
+      setEmail(emailParam);
     }
 
-    if (success === 'true' && provider === 'microsoft') {
+    if (success === 'true') {
       setStatus('success');
-      setMessage('Email account connected successfully!');
+      setMessage(`${provider ? provider.charAt(0).toUpperCase() + provider.slice(1) : 'Email'} account connected successfully!`);
       
-      // Store the connection status
+      // Update localStorage
       localStorage.setItem('emailConnected', 'true');
-      localStorage.setItem('emailProvider', 'microsoft');
+      localStorage.setItem('emailProvider', provider || 'microsoft');
+      if (emailParam) {
+        localStorage.setItem('userEmail', emailParam);
+      }
       
-      setTimeout(() => {
-        router.push('/dashboard');
-      }, 2000);
-    } else {
-      setStatus('error');
-      setMessage('Unknown OAuth response');
+      // Redirect to dashboard after 3 seconds
       setTimeout(() => {
         router.push('/dashboard');
       }, 3000);
+    } else {
+      setStatus('error');
+      setMessage(error || 'Failed to connect email account. Please try again.');
+      
+      // Clear localStorage on error
+      localStorage.removeItem('emailConnected');
+      localStorage.removeItem('emailProvider');
     }
   }, [searchParams, router]);
 
+  const handleRetry = () => {
+    router.push('/dashboard');
+  };
+
+  const handleGoToDashboard = () => {
+    router.push('/dashboard');
+  };
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <CardTitle className="flex items-center justify-center gap-2">
-            <Mail className="h-6 w-6" />
-            OAuth Callback
+            {status === 'processing' && <Loader2 className="h-6 w-6 animate-spin text-blue-600" />}
+            {status === 'success' && <CheckCircle className="h-6 w-6 text-green-600" />}
+            {status === 'error' && <XCircle className="h-6 w-6 text-red-600" />}
+            Email Connection
           </CardTitle>
         </CardHeader>
-        <CardContent className="text-center space-y-4">
-          {status === 'loading' && (
-            <div className="space-y-4">
-              <div className="flex items-center justify-center">
-                <Loader2 className="h-12 w-12 animate-spin text-blue-600" />
+        <CardContent className="space-y-4">
+          {status === 'processing' && (
+            <div className="text-center space-y-2">
+              <p className="text-gray-600">Processing your email connection...</p>
+              <div className="flex justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
               </div>
-              <h3 className="text-lg font-semibold text-gray-900">Connecting...</h3>
-              <p className="text-gray-600">{message}</p>
-              <p className="text-xs text-gray-500">
-                Please wait while we complete the connection...
-              </p>
             </div>
           )}
           
           {status === 'success' && (
-            <div className="space-y-4">
-              <div className="flex items-center justify-center">
-                <CheckCircle className="h-12 w-12 text-green-600" />
+            <div className="text-center space-y-4">
+              <div className="flex items-center justify-center gap-2 text-green-600">
+                <Mail className="h-5 w-5" />
+                <span className="font-medium">Success!</span>
               </div>
-              <h3 className="text-lg font-semibold text-gray-900">Success!</h3>
-              <p className="text-gray-600">{message}</p>
-              <p className="text-xs text-gray-500">
+              <p className="text-gray-700">{message}</p>
+              {email && (
+                <p className="text-sm text-gray-600">
+                  Connected: <span className="font-medium">{email}</span>
+                </p>
+              )}
+              <p className="text-sm text-gray-500">
                 Redirecting to dashboard...
               </p>
+              <Button onClick={handleGoToDashboard} className="w-full">
+                Go to Dashboard Now
+              </Button>
             </div>
           )}
           
           {status === 'error' && (
-            <div className="space-y-4">
-              <div className="flex items-center justify-center">
-                <XCircle className="h-12 w-12 text-red-600" />
+            <div className="text-center space-y-4">
+              <div className="flex items-center justify-center gap-2 text-red-600">
+                <XCircle className="h-5 w-5" />
+                <span className="font-medium">Connection Failed</span>
               </div>
-              <h3 className="text-lg font-semibold text-gray-900">Error</h3>
-              <p className="text-gray-600">{message}</p>
-              <Button 
-                onClick={() => router.push('/dashboard')}
-                className="w-full"
-              >
-                Return to Dashboard
-              </Button>
+              <p className="text-gray-700">{message}</p>
+              <div className="space-y-2">
+                <Button onClick={handleRetry} className="w-full">
+                  Try Again
+                </Button>
+                <Button onClick={handleGoToDashboard} variant="outline" className="w-full">
+                  Go to Dashboard
+                </Button>
+              </div>
             </div>
           )}
         </CardContent>
@@ -106,7 +124,7 @@ function OAuthCallbackContent() {
 export default function OAuthCallback() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <Card className="w-full max-w-md">
           <CardHeader className="text-center">
             <CardTitle className="flex items-center justify-center gap-2">
