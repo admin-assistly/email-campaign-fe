@@ -11,13 +11,14 @@ import { Eye, EyeOff, Shield, Users, BarChart3, Sparkles, Zap, Send, MousePointe
 import Link from 'next/link';
 import { ImageWithFallback } from '@/components/ui/ImageWithFallback';
 import { authService } from '@/services/auth';
-
+import { useRouter } from "next/navigation";
 export default function SignupPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const router = useRouter()
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -63,6 +64,7 @@ export default function SignupPage() {
           securityAnswer: '',
           agreeToTerms: false
         });
+        router.push('/login');
       }
     } catch (error: any) {
       setError(error.message || 'Signup failed. Please try again.');

@@ -1,5 +1,6 @@
 // API abstraction layer for Flask backend
 // All endpoints go through Next.js API routes for proper authentication
+import { config } from '@/lib/config';
 
 // Get current user from session
 export async function getCurrentUser() {
