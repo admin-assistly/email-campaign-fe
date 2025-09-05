@@ -10,13 +10,14 @@ export async function GET(
     const { id } = await params;
     const cookieHeader = request.headers.get('cookie') || '';
     
-    const response = await fetch(`${API_BASE_URL}/responses/${id}`, {
+    const response = await fetch(`${API_BASE_URL}/emails/${id}`, {
       method: 'GET',
-      credentials: 'include', 
       headers: {
         'Content-Type': 'application/json',
-        'Cookie': cookieHeader, 
-    }});
+        'Cookie': cookieHeader, // ← Forward all cookies
+      },
+    });
+    
     if (!response.ok) {
       const error = await response.json();
       return NextResponse.json(error, { status: response.status });
@@ -25,10 +26,10 @@ export async function GET(
     const data = await response.json();
     return NextResponse.json(data);
   } catch (error) {
-    console.error('Error fetching response from backend:', error);
+    console.error('Error fetching email from backend:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
     );
   }
-} 
+}

@@ -95,7 +95,9 @@ class AuthService {
   }
 
   // Check session
-  async checkSession(): Promise<ApiResponse<{ isLoggedIn: boolean; user_email?: string }>> {
+  async checkSession(): Promise<ApiResponse<{
+    user_name: string | undefined; isLoggedIn: boolean; user_email?: string 
+}>> {
     return this.makeRequest('/check_session', {
       method: 'GET',
     });

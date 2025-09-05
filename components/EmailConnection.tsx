@@ -4,7 +4,10 @@ import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { CheckCircle, XCircle, Mail, AlertTriangle, Loader2 } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { CheckCircle, XCircle, Mail, AlertTriangle, Loader2, Globe, Shield, Key } from "lucide-react";
 import { getCurrentUser } from "@/services/api";
 
 interface EmailStatus {
@@ -14,11 +17,24 @@ interface EmailStatus {
   created_at?: string;
 }
 
+interface ProviderInfo {
+  name: string;
+  oauth_provider: string;
+  auth_methods: string[];
+  requires_manual_config?: boolean;
+}
+
 const EmailConnection = () => {
   const [emailStatus, setEmailStatus] = useState<EmailStatus | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [currentUser, setCurrentUser] = useState<string | null>(null);
+  const [showConnectionForm, setShowConnectionForm] = useState(false);
+  const [emailInput, setEmailInput] = useState('');
+  const [providerInfo, setProviderInfo] = useState<ProviderInfo | null>(null);
+  const [authMethod, setAuthMethod] = useState('oauth2');
+  const [password, setPassword] = useState('');
+  const [testingConnection, setTestingConnection] = useState(false);
 
   // Check email connection status on component mount
   useEffect(() => {
@@ -107,27 +123,13 @@ const EmailConnection = () => {
     }
   };
 
-  const connectEmail = async () => {
-    setLoading(true);
-    setError(null);
-
-    // Check authentication first
-    const isAuthenticated = await checkAuth();
-    if (!isAuthenticated) {
-      setError('Please log in first');
-      setLoading(false);
-      return;
-    }
-
+  const detectProvider = async (email: string) => {
     try {
-      // Step 1: Detect provider for user's email
-      const userEmail = currentUser || localStorage.getItem('userEmail') || 'alekhyag@charterglobal.com';
-      
       const detectResponse = await fetch('/api/email-accounts/detect-provider', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ email: userEmail })
+        body: JSON.stringify({ email })
       });
 
       if (!detectResponse.ok) {
@@ -141,12 +143,82 @@ const EmailConnection = () => {
         throw new Error(detectData.error || 'Failed to detect email provider');
       }
 
-      // Step 2: Get OAuth URL
+      setProviderInfo({
+        name: detectData.data.provider_name,
+        oauth_provider: detectData.data.oauth_provider,
+        auth_methods: detectData.data.auth_methods || ['oauth2'],
+        requires_manual_config: detectData.data.requires_manual_config
+      });
+
+      // Set default auth method
+      if (detectData.data.auth_methods && detectData.data.auth_methods.length > 0) {
+        setAuthMethod(detectData.data.auth_methods[0]);
+      }
+
+      return detectData.data;
+    } catch (error: any) {
+      setError(error.message);
+      return null;
+    }
+  };
+
+  const testConnection = async () => {
+    if (!emailInput || !authMethod) return;
+
+    setTestingConnection(true);
+    setError(null);
+
+    try {
+      const response = await fetch('/api/email-accounts/test-connection', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ 
+          email: emailInput, 
+          auth_method: authMethod,
+          password: authMethod !== 'oauth2' ? password : undefined
+        })
+      });
+
+      const data = await response.json();
+      
+      if (data.success && data.data.success) {
+        setError(null);
+        alert(`✅ Connection successful! ${data.data.message}`);
+      } else {
+        setError(data.data?.message || 'Connection test failed');
+      }
+    } catch (error: any) {
+      setError(error.message);
+    } finally {
+      setTestingConnection(false);
+    }
+  };
+
+  const connectEmail = async () => {
+    if (!emailInput || !providerInfo) return;
+
+    setLoading(true);
+    setError(null);
+
+    // Check authentication first
+    const isAuthenticated = await checkAuth();
+    if (!isAuthenticated) {
+      setError('Please log in first');
+      setLoading(false);
+      return;
+    }
+
+    try {
+      // Get OAuth URL for the detected provider
       const oauthResponse = await fetch('/api/email-accounts/oauth-url', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ email: userEmail })
+        body: JSON.stringify({ 
+          email: emailInput,
+          provider: providerInfo.oauth_provider
+        })
       });
 
       if (!oauthResponse.ok) {
@@ -160,7 +232,7 @@ const EmailConnection = () => {
         throw new Error(oauthData.error || 'Failed to get OAuth URL');
       }
 
-      // Step 3: Redirect to Microsoft OAuth
+      // Redirect to OAuth
       window.location.href = oauthData.data.auth_url;
 
     } catch (error: any) {
@@ -257,9 +329,10 @@ const EmailConnection = () => {
           Connect Your Email
         </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-3">
+      <CardContent className="space-y-4">
         <p className="text-sm text-orange-700">
-          Connect your email account to send campaigns and receive replies.
+          Connect your email account to send campaigns and receive replies. 
+          Supports Gmail, Outlook, Yahoo, and any custom domain.
         </p>
         
         {error && (
@@ -268,21 +341,178 @@ const EmailConnection = () => {
             <span className="text-sm text-red-700">{error}</span>
           </div>
         )}
-        
-        <Button 
-          onClick={connectEmail}
-          disabled={loading}
-          className="bg-blue-600 text-white hover:bg-blue-700"
-        >
-          {loading ? (
-            <>
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              Connecting...
-            </>
-          ) : (
-            'Connect Microsoft Email'
-          )}
-        </Button>
+
+        {!showConnectionForm ? (
+          <div className="space-y-3">
+            <Button 
+              onClick={() => {
+                setEmailInput(currentUser || '');
+                setShowConnectionForm(true);
+                if (currentUser) {
+                  detectProvider(currentUser);
+                }
+              }}
+              className="bg-blue-600 text-white hover:bg-blue-700"
+            >
+              <Globe className="h-4 w-4 mr-2" />
+              Connect Email Account
+            </Button>
+            
+            <p className="text-xs text-orange-600">
+              We'll automatically detect your email provider and guide you through the connection process.
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {/* Email Input */}
+            <div className="space-y-2">
+              <Label htmlFor="email">Email Address</Label>
+              <Input
+                id="email"
+                type="email"
+                placeholder="your.email@domain.com"
+                value={emailInput}
+                onChange={(e) => {
+                  setEmailInput(e.target.value);
+                  setProviderInfo(null);
+                }}
+                onBlur={() => {
+                  if (emailInput) {
+                    detectProvider(emailInput);
+                  }
+                }}
+              />
+            </div>
+
+            {/* Provider Info */}
+            {providerInfo && (
+              <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                <div className="flex items-center gap-2 mb-2">
+                  <Globe className="h-4 w-4 text-blue-600" />
+                  <span className="text-sm font-medium text-blue-800">
+                    Detected Provider: {providerInfo.name}
+                  </span>
+                </div>
+                
+                {providerInfo.requires_manual_config && (
+                  <div className="flex items-center gap-2 mb-2">
+                    <AlertTriangle className="h-3 w-3 text-orange-600" />
+                    <span className="text-xs text-orange-700">
+                      Custom domain detected. May require manual configuration.
+                    </span>
+                  </div>
+                )}
+
+                {/* Auth Method Selection */}
+                <div className="space-y-2">
+                  <Label htmlFor="auth-method">Authentication Method</Label>
+                  <Select value={authMethod} onValueChange={setAuthMethod}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {providerInfo.auth_methods.includes('oauth2') && (
+                        <SelectItem value="oauth2">
+                          <div className="flex items-center gap-2">
+                            <Shield className="h-3 w-3" />
+                            OAuth2 (Recommended)
+                          </div>
+                        </SelectItem>
+                      )}
+                      {providerInfo.auth_methods.includes('app_password') && (
+                        <SelectItem value="app_password">
+                          <div className="flex items-center gap-2">
+                            <Key className="h-3 w-3" />
+                            App Password
+                          </div>
+                        </SelectItem>
+                      )}
+                      {providerInfo.auth_methods.includes('basic_auth') && (
+                        <SelectItem value="basic_auth">
+                          <div className="flex items-center gap-2">
+                            <Key className="h-3 w-3" />
+                            Username/Password
+                          </div>
+                        </SelectItem>
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Password Input for non-OAuth methods */}
+                {authMethod !== 'oauth2' && (
+                  <div className="space-y-2">
+                    <Label htmlFor="password">
+                      {authMethod === 'app_password' ? 'App Password' : 'Password'}
+                    </Label>
+                    <Input
+                      id="password"
+                      type="password"
+                      placeholder={authMethod === 'app_password' ? 'Enter app password' : 'Enter password'}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                    />
+                    {authMethod === 'app_password' && (
+                      <p className="text-xs text-blue-600">
+                        Generate an app password from your email provider's security settings.
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {/* Action Buttons */}
+                <div className="flex gap-2 pt-2">
+                  {authMethod !== 'oauth2' && (
+                    <Button
+                      onClick={testConnection}
+                      disabled={testingConnection || !emailInput || !password}
+                      variant="outline"
+                      size="sm"
+                    >
+                      {testingConnection ? (
+                        <>
+                          <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                          Testing...
+                        </>
+                      ) : (
+                        'Test Connection'
+                      )}
+                    </Button>
+                  )}
+                  
+                  <Button
+                    onClick={connectEmail}
+                    disabled={loading || !emailInput || (authMethod !== 'oauth2' && !password)}
+                    className="bg-blue-600 text-white hover:bg-blue-700"
+                    size="sm"
+                  >
+                    {loading ? (
+                      <>
+                        <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                        Connecting...
+                      </>
+                    ) : (
+                      authMethod === 'oauth2' ? 'Connect with OAuth' : 'Connect'
+                    )}
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            <Button
+              onClick={() => {
+                setShowConnectionForm(false);
+                setEmailInput('');
+                setProviderInfo(null);
+                setError(null);
+              }}
+              variant="ghost"
+              size="sm"
+            >
+              Cancel
+            </Button>
+          </div>
+        )}
       </CardContent>
     </Card>
   );

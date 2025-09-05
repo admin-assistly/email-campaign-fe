@@ -14,7 +14,7 @@ export async function POST(request: NextRequest) {
       backendHeaders['Cookie'] = cookies; // Explicitly forward cookies
     }
 
-    const response = await fetch(`${API_BASE_URL.replace('/api', '')}/email-accounts/disconnect`, {
+    const response = await fetch(`${API_BASE_URL}/email-accounts/disconnect`, {
       method: 'POST',
       // Remove credentials: 'include' here, as we're manually setting the Cookie header
       headers: backendHeaders,

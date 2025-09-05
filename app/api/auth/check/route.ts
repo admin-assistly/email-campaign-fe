@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:5000/api";
+
 export async function GET(request: NextRequest) {
   try {
     console.log('🔍 [AUTH-CHECK] Checking authentication...');
@@ -16,7 +18,7 @@ export async function GET(request: NextRequest) {
       backendHeaders['Cookie'] = cookies; // Explicitly forward cookies
     }
 
-    const response = await fetch('http://localhost:5000/check_session', {
+    const response = await fetch(`${API_BASE_URL}/check_session`, {
       method: 'GET',
       // Remove credentials: 'include' here, as we're manually setting the Cookie header
       headers: backendHeaders,

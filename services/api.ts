@@ -1,7 +1,6 @@
 // API abstraction layer for Flask backend
-// All endpoints should use consistent base URL
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:5000/api";
+// All endpoints go through Next.js API routes for proper authentication
+import { config } from '@/lib/config';
 
 // Get current user from session
 export async function getCurrentUser() {
@@ -125,20 +124,26 @@ export async function fetchCampaignFiles() {
 
 
 export async function fetchEmailById(emailId: number) {
-  const res = await fetch(`${API_BASE_URL}/emails/${emailId}`);
+  const res = await fetch(`/api/emails/${emailId}`, {
+    credentials: 'include',
+  });
   if (!res.ok) throw new Error("Failed to fetch email");
   return res.json();
 }
 
 // RESPONSES
 export async function fetchResponses() {
-  const res = await fetch(`${API_BASE_URL}/responses`);
+  const res = await fetch(`/api/responses`, {
+    credentials: 'include',
+  });
   if (!res.ok) throw new Error("Failed to fetch responses");
   return res.json();
 }
 
 export async function fetchResponseById(responseId: string) {
-  const res = await fetch(`${API_BASE_URL}/responses/${responseId}`);
+  const res = await fetch(`/api/responses/${responseId}`, {
+    credentials: 'include',
+  });
   if (!res.ok) throw new Error("Failed to fetch response");
   return res.json();
 }
@@ -153,9 +158,10 @@ export async function createResponse(data: {
   message_id?: string;
   in_reply_to?: string;
 }) {
-  const res = await fetch(`${API_BASE_URL}/responses`, {
+  const res = await fetch(`/api/responses`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
+    credentials: 'include',
     body: JSON.stringify(data),
   });
   if (!res.ok) throw new Error("Failed to create response");
@@ -169,6 +175,7 @@ export async function uploadFile(file: File) {
   const res = await fetch(`/api/upload-file`, {
     method: "POST",
     body: formData,
+    credentials: 'include',
   });
   if (!res.ok) throw new Error("Failed to upload file");
   return res.json();
@@ -190,7 +197,10 @@ export async function linkFileToCampaign(fileId: number, campaignId: number) {
 
 export async function fetchPresignedUrl(fileId: number) {
   const res = await fetch(
-    `/api/files/${fileId}/presigned-url`
+    `/api/files/${fileId}/presigned-url`,
+    {
+      credentials: 'include',
+    }
   );
   if (!res.ok) throw new Error("Failed to get presigned URL");
   return res.json();
@@ -201,16 +211,57 @@ export async function fetchClassificationMetrics(campaignId?: string) {
   const url = campaignId 
     ? `/api/metrics/classifications?campaign_id=${campaignId}`
     : `/api/metrics/classifications`;
-  const res = await fetch(url);
+  const res = await fetch(url, {
+    credentials: 'include',
+  });
   if (!res.ok) throw new Error("Failed to fetch classification metrics");
   return res.json();
 }
 
 export async function fetchCampaignPerformance() {
-  const res = await fetch(`/api/metrics/campaign-performance`);
+  const res = await fetch(`/api/metrics/campaign-performance`, {
+    credentials: 'include',
+  });
   if (!res.ok) throw new Error("Failed to fetch campaign performance");
   return res.json();
 }
 
+// EMAIL ACCOUNT MANAGEMENT
+export async function checkEmailStatus() {
+  const res = await fetch('/api/email-accounts/status', {
+    credentials: 'include'
+  });
+  if (!res.ok) throw new Error("Failed to check email status");
+  return res.json();
+}
 
+export async function detectEmailProvider(email: string) {
+  const res = await fetch('/api/email-accounts/detect-provider', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ email })
+  });
+  if (!res.ok) throw new Error("Failed to detect email provider");
+  return res.json();
+}
 
+export async function getOAuthUrl(email: string) {
+  const res = await fetch('/api/email-accounts/oauth-url', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ email })
+  });
+  if (!res.ok) throw new Error("Failed to get OAuth URL");
+  return res.json();
+}
+
+export async function disconnectEmail() {
+  const res = await fetch('/api/email-accounts/disconnect', {
+    method: 'POST',
+    credentials: 'include'
+  });
+  if (!res.ok) throw new Error("Failed to disconnect email");
+  return res.json();
+}

@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
       backendHeaders['Cookie'] = cookies; // Explicitly forward cookies
     }
 
-    const response = await fetch('http://localhost:5000/login', {
+    const response = await fetch('http://localhost:5000/api/login', {
       method: 'POST',
       // Remove credentials: 'include' here, as we're manually setting the Cookie header
       headers: backendHeaders,
